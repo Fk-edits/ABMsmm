@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ABM-10 TOPUP — Premium SMM Panel</title>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+    <!-- ==================== NAVBAR ==================== -->
+    <nav class="navbar" id="navbar">
+        <div class="logo" onclick="navigate('home')">
+            <svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="diamondGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#60a5fa;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#1e40af;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <polygon points="20,2 38,20 20,38 2,20" fill="url(#diamondGrad)" stroke="#93bbfd" stroke-width="1.5" />
+            </svg>
+            ABM-10 TOPUP
+        </div>
+        <ul class="nav-links" id="navLinks"></ul>
+        <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+            <span></span><span></span><span></span>
+        </button>
+    </nav>
+
+    <!-- ==================== MOBILE BOTTOM NAV ==================== -->
+    <div class="mobile-bottom-nav" id="mobileBottomNav"></div>
+
+    <!-- ==================== APP CONTAINER ==================== -->
+    <div id="app"></div>
+
+    <!-- ==================== TOAST CONTAINER ==================== -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ==================== IMAGE ZOOM OVERLAY ==================== -->
+    <div class="img-zoom-overlay hidden" id="imgZoomOverlay" onclick="closeImageZoom()">
+        <img src="" alt="Payment Screenshot" id="imgZoomSrc">
+    </div>
+
+    <!-- ==================== MODAL OVERLAY ==================== -->
+    <div class="modal-overlay hidden" id="modalOverlay" onclick="closeModal(event)">
+        <div class="modal" id="modalContent" onclick="event.stopPropagation()"></div>
+    </div>
+
+    <!-- ==================== CONFIRMATION DIALOG ==================== -->
+    <div class="confirm-overlay hidden" id="confirmOverlay">
+        <div class="confirm-dialog glass-card-static">
+            <p id="confirmMessage">Are you sure?</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button class="btn btn-primary" id="confirmYes">Yes</button>
+                <button class="btn btn-outline" id="confirmNo">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JavaScript -->
+    <script src="index.js"></script>
+</body>
+</html>
