@@ -286,7 +286,7 @@ function renderHome(app) {
                 <img src="dev.png" alt="Nexora" onerror="this.style.display='none'">
                 <span>Powered by <a href="https://t.me/nexora_creatives" target="_blank">Nexora</a> — @nexora_creatives</span>
             </div>
-            <p style="color:var(--text-muted);font-size:0.8rem;">© 2026 ABM-10 TOPUP. All rights reserved. | <a href="https://t.me/ihaveonequestion1" target="_blank" style="color:var(--blue-light);">@ihaveonequestion1</a></p>
+            <p style="color:var(--text-muted);font-size:0.8rem;">© 2026 ABM-10 TOPUP. All rights reserved. | <a href="https://t.me/abm10topup" target="_blank" style="color:var(--blue-light);">@abm10topup</a></p>
         </footer>
     `;
     loadPopularProducts();
@@ -483,7 +483,6 @@ async function submitOrder(){
             await db.collection('orders').add(orderData);
             if(appliedCoupon) await db.collection('coupons').doc(appliedCoupon.id).update({used:firebase.firestore.FieldValue.increment(1)});
             await db.collection('notifications').add({targetId:'admin',title:'New Order Received',message:`${currentUser.email} placed an order for ${p.name} — Br ${total.toFixed(2)}`,read:false,createdAt:Date.now()});
-            // Enhanced Telegram notification
             const pmName = allPaymentMethods.find(m=>m.id===pmId)?.name || 'Unknown';
             let tgMsg = `🔔 <b>New Order</b>\n\n👤 ${currentUser.email}\n📦 ${p.name}${pkgName?` (${pkgName})`:''}\n🔢 Qty: ${qty}\n💳 Method: ${pmName}\n💰 Br ${total.toFixed(2)}\n📅 ${new Date().toLocaleString()}`;
             await sendTelegramNotification(tgMsg);
