@@ -398,7 +398,24 @@ function renderProductDetailPage(app) {
     const packages = p.amounts||p.packages||[];
     orderTotalBeforeCoupon = packages.length?packages[0].price:((p.price||0)*(p.minQty||100));
     appliedCoupon = null;
-    app.innerHTML = `<div style="padding:80px 2rem 2rem;max-width:700px;margin:0 auto;"><button class="btn btn-outline btn-sm" onclick="navigate('products')"><i class="fas fa-arrow-left"></i> Back</button><div class="glass-card-static" style="padding:2rem;margin-top:1rem;"><div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">${p.imageUrl?`<img src="${p.imageUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:12px;">`:`<div style="width:80px;height:80px;border-radius:12px;background:var(--blue-gradient);display:flex;align-items:center;justify-content:center;"><i class="fas ${getCategoryIcon(p.category)} fa-2x" style="color:#fff;"></i></div>`}<div><h2>${p.name}</h2><p style="color:var(--text-muted);">${p.category} | ${p.deliveryTime||'1-24h'}</p></div></div>${p.description?`<p style="margin-top:1rem;color:var(--text-secondary);">${p.description}</p>`:''}<div id="orderForm" style="border-top:1px solid var(--border);padding-top:1.5rem;"><h4><i class="fas fa-shopping-cart"></i> Place Your Order</h4>${packages.length?`<div class="form-group"><label>Select Package</label><select id="packageSelect" onchange="updateOrderTotal()">${packages.map(pk=>`<option value="${pk.price}" data-name="${pk.name}" data-note="${pk.note||''}">${pk.name} — Br ${pk.price.toFixed(2)}</option>`).join('')}</select><small id="packageNote" style="color:var(--orange);display:block;margin-top:4px;"></small></div>`:`<div class="form-group"><label>Quantity (${p.minQty||10} — ${p.maxQty||100000})</label><input type="number" id="quantityInput" min="${p.minQty||10}" max="${p.maxQty||100000}" value="${p.minQty||100}" oninput="updateOrderTotal()"></div>`}<div style="font-size:2rem;font-weight:700;color:var(--blue-light);text-align:center;">Total: Br <span id="orderTotal">${orderTotalBeforeCoupon.toFixed(2)}</span></div><div class="form-group"><label>Coupon Code (Optional)</label><div style="display:flex;gap:8px;"><input type="text" id="couponCodeInput" placeholder="Enter code"><button class="btn btn-outline btn-sm" onclick="applyCoupon()">Apply</button></div><small id="couponStatus" style="color:var(--green);display:none;"></small></div><div class="form-group"><label>Payment Method</label><div id="paymentMethodsList">Loading...</div></div><div class="form-group"><label>Upload Payment Screenshot</label><div class="file-upload-wrapper"><input type="file" id="paymentScreenshot" accept="image/*" onchange="previewScreenshot(this)"><div class="file-upload-label"><i class="fas fa-cloud-upload-alt"></i> Choose Image</div></div><img id="screenshotPreview" style="max-width:200px;margin-top:10px;border-radius:8px;display:none;"></div><button class="btn btn-primary btn-lg" style="width:100%;" onclick="submitOrder()" id="submitOrderBtn" ${currentUser?'':'disabled'}><i class="fas fa-paper-plane"></i> Place Order</button>${!currentUser?'<p style="text-align:center;margin-top:12px;color:var(--text-muted);">Please <a onclick="navigate(\'login\')" style="color:var(--blue-light);cursor:pointer;">log in</a> to place an order.</p>':''}</div></div></div>`;
+    app.innerHTML = `<div style="padding:80px 2rem 2rem;max-width:700px;margin:0 auto;"><button class="btn btn-outline btn-sm" onclick="navigate('products')"><i class="fas fa-arrow-left"></i> Back</button><div class="glass-card-static" style="padding:2rem;margin-top:1rem;"><div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">${p.imageUrl?`<img src="${p.imageUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:12px;">`:`<div style="width:80px;height:80px;border-radius:12px;background:var(--blue-gradient);display:flex;align-items:center;justify-content:center;"><i class="fas ${getCategoryIcon(p.category)} fa-2x" style="color:#fff;"></i></div>`}<div><h2>${p.name}</h2><p style="color:var(--text-muted);">${p.category} | ${p.deliveryTime||'1-24h'}</p></div></div>${p.description?`<p style="margin-top:1rem;color:var(--text-secondary);">${p.description}</p>`:''}<div id="orderForm" style="border-top:1px solid var(--border);padding-top:1.5rem;"><h4><i class="fas fa-shopping-cart"></i> Place Your Order</h4>${packages.length?`<div class="form-group"><label>Select Package</label><select id="packageSelect" onchange="updateOrderTotal()">${packages.map(pk=>`<option value="${pk.price}" data-name="${pk.name}" data-note="${pk.note||''}">${pk.name} — Br ${pk.price.toFixed(2)}</option>`).join('')}</select><small id="packageNote" style="color:var(--orange);display:block;margin-top:4px;"></small></div>`:`<div class="form-group"><label>Quantity (${p.minQty||10} — ${p.maxQty||100000})</label><input type="number" id="quantityInput" min="${p.minQty||10}" max="${p.maxQty||100000}" value="${p.minQty||100}" oninput="updateOrderTotal()"></div>`}<div style="font-size:2rem;font-weight:700;color:var(--blue-light);text-align:center;">Total: Br <span id="orderTotal">${orderTotalBeforeCoupon.toFixed(2)}</span></div>
+    <!-- ⭐ NEW: Customer account/ID field -->
+    <div class="form-group">
+        <label><i class="fas fa-user"></i> Your Account / ID</label>
+        <input type="text" id="customerAccount" placeholder="e.g. @username, PUBG ID, video URL" required>
+        <small style="color:var(--orange);">This is where we'll deliver your service. Make sure it's correct!</small>
+    </div>
+    <div class="form-group"><label>Coupon Code (Optional)</label><div style="display:flex;gap:8px;"><input type="text" id="couponCodeInput" placeholder="Enter code"><button class="btn btn-outline btn-sm" onclick="applyCoupon()">Apply</button></div><small id="couponStatus" style="color:var(--green);display:none;"></small></div>
+    <div class="form-group"><label>Payment Method</label><div id="paymentMethodsList">Loading...</div></div>
+    <div class="form-group"><label>Upload Payment Screenshot</label><div class="file-upload-wrapper"><input type="file" id="paymentScreenshot" accept="image/*" onchange="previewScreenshot(this)"><div class="file-upload-label"><i class="fas fa-cloud-upload-alt"></i> Choose Image</div></div><img id="screenshotPreview" style="max-width:200px;margin-top:10px;border-radius:8px;display:none;"></div>
+    <button class="btn btn-primary btn-lg" style="width:100%;" onclick="submitOrder()" id="submitOrderBtn" ${currentUser?'':'disabled'}><i class="fas fa-paper-plane"></i> Place Order</button>
+    ${!currentUser?'<p style="text-align:center;margin-top:12px;color:var(--text-muted);">Please <a onclick="navigate(\'login\')" style="color:var(--blue-light);cursor:pointer;">log in</a> to place an order.</p>':''}
+    <!-- ⭐ NEW: Admin contact link -->
+    <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);margin-top:10px;">
+        <i class="fab fa-telegram"></i> Need help? Contact admin: 
+        <a href="https://t.me/ihaveonequestion1" target="_blank" style="color:var(--blue-light);">@ihaveonequestion1</a>
+    </p>
+    </div></div></div>`;
     if(packages.length){
         const sel = document.getElementById('packageSelect');
         const updateNote = ()=>{ const opt=sel.selectedOptions[0]; document.getElementById('packageNote').textContent=opt?.dataset?.note||''; };
@@ -433,12 +450,12 @@ function renderPaymentMethodsList(container) {
 }
 function selectPaymentMethod(el){el.querySelector('input').checked=true;document.querySelectorAll('.payment-method-item').forEach(e=>e.style.borderColor='var(--border)');el.style.borderColor='var(--blue-primary)';}
 
-// ⭐ UPDATED previewScreenshot – 400KB limit
+// ⭐ UPDATED previewScreenshot – keeps original preview, compression only on submit
 function previewScreenshot(input){
     const preview=document.getElementById('screenshotPreview');
     if(input.files&&input.files[0]){
-        if(input.files[0].size > 400 * 1024){
-            showToast('File size must be less than 400KB.','error');
+        if(input.files[0].size > 5 * 1024 * 1024){  // still warn about huge files
+            showToast('File size must be less than 5MB.','error');
             input.value='';
             preview.style.display='none';
             return;
@@ -455,6 +472,52 @@ function previewScreenshot(input){
         reader.readAsDataURL(input.files[0]);
     }
 }
+
+// ⭐ NEW: Image compression helper
+async function compressImage(file, maxSizeKB = 400) {
+    // Only compress if file is already an image and larger than the target size
+    if (!file.type.startsWith('image/') || file.size <= maxSizeKB * 1024) {
+        return file; // no compression needed
+    }
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            // Max width 800px for reasonable size
+            if (width > 800) {
+                height = Math.round((800 / width) * height);
+                width = 800;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            // Try to get a JPEG blob under the size limit
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    reject(new Error('Canvas compression failed'));
+                    return;
+                }
+                // If still too large, reduce quality further (shouldn't happen often)
+                if (blob.size > maxSizeKB * 1024) {
+                    canvas.toBlob((blob2) => {
+                        if (!blob2) reject(new Error('Canvas compression failed'));
+                        else resolve(new File([blob2], file.name, { type: 'image/jpeg' }));
+                    }, 'image/jpeg', 0.5);
+                } else {
+                    resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                }
+            }, 'image/jpeg', 0.7);
+        };
+        img.onerror = () => reject(new Error('Failed to load image for compression'));
+        img.src = url;
+    });
+}
+
 async function applyCoupon(){
     const code=document.getElementById('couponCodeInput')?.value.trim().toUpperCase();
     const statusEl=document.getElementById('couponStatus');
@@ -473,16 +536,19 @@ async function applyCoupon(){
     showToast(`Coupon applied: ${coupon.discount}% discount!`,'success');
 }
 
-// ⭐ UPDATED submitOrder – 400KB limit, timeout notice, robust FileReader
+// ⭐ UPDATED submitOrder – uses compressed image, adds customerAccount
 async function submitOrder(){
     if(!currentUser){showToast('Please log in first.','error');navigate('login');return;}
     const p=selectedProduct; if(!p)return;
+    // Read customer account/ID
+    const customerAccount = document.getElementById('customerAccount')?.value.trim();
+    if(!customerAccount){
+        showToast('Please enter your account/ID.','error');
+        return;
+    }
     const fileInput=document.getElementById('paymentScreenshot');
     const file=fileInput?.files[0];
     if(!file){showToast('Please upload a payment screenshot.','error');return;}
-    if(file.size > 400 * 1024){showToast('File size must be less than 400KB.','error');return;}
-    const validTypes = ['image/jpeg','image/png','image/gif','image/webp'];
-    if(!validTypes.includes(file.type)){showToast('Please upload a valid image.','error');return;}
     const pmId=document.querySelector('input[name="paymentMethod"]:checked')?.value;
     if(!pmId){showToast('Please select a payment method.','error');return;}
     let quantity, totalPrice, packageName=null;
@@ -497,21 +563,40 @@ async function submitOrder(){
         btn.disabled = false;
         btn.innerHTML = origText;
         showToast('Request timed out. Please try again.','error');
-    }, 30000);
+    }, 45000);  // 45 seconds
     try {
+        // Compress image if needed
+        const compressedFile = await compressImage(file, 400);
         const base64 = await new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
             reader.onerror = () => { showToast('Failed to read the image. Try a smaller file.','error'); reject(new Error('FileReader error')); };
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(compressedFile);
         });
         clearTimeout(timeoutId);
-        const orderData={userId:currentUser.uid,userEmail:currentUser.email,productId:p.id,productName:p.name,category:p.category,quantity,totalPrice,originalPrice:orderTotalBeforeCoupon,packageName,paymentMethodId:pmId,screenshotUrl:base64,couponApplied:appliedCoupon?{code:appliedCoupon.code,discount:appliedCoupon.discount}:null,status:'pending',createdAt:Date.now(),updatedAt:Date.now()};
+        const orderData={
+            userId:currentUser.uid,
+            userEmail:currentUser.email,
+            productId:p.id,
+            productName:p.name,
+            category:p.category,
+            quantity,
+            totalPrice,
+            originalPrice:orderTotalBeforeCoupon,
+            packageName,
+            paymentMethodId:pmId,
+            screenshotUrl:base64,
+            customerAccount:customerAccount,     // ⭐ NEW
+            couponApplied:appliedCoupon?{code:appliedCoupon.code,discount:appliedCoupon.discount}:null,
+            status:'pending',
+            createdAt:Date.now(),
+            updatedAt:Date.now()
+        };
         await db.collection('orders').add(orderData);
         if(appliedCoupon) await db.collection('coupons').doc(appliedCoupon.id).update({used:firebase.firestore.FieldValue.increment(1)});
         await db.collection('notifications').add({targetId:'admin',title:'New Order Received',message:`${currentUser.email} placed an order for ${p.name} — Br ${totalPrice.toFixed(2)}`,read:false,createdAt:Date.now()});
         const pmName = allPaymentMethods.find(m=>m.id===pmId)?.name || 'Unknown';
-        sendTelegramNotification(`🔔 <b>New Order</b>\n\n👤 ${currentUser.email}\n📦 ${p.name}${packageName?` (${packageName})`:''}\n🔢 Qty: ${quantity}\n💳 Method: ${pmName}\n💰 Br ${totalPrice.toFixed(2)}\n📅 ${new Date().toLocaleString()}`);
+        sendTelegramNotification(`🔔 <b>New Order</b>\n\n👤 ${currentUser.email}\n📦 ${p.name}${packageName?` (${packageName})`:''}\n👤 Account: ${customerAccount}\n🔢 Qty: ${quantity}\n💳 Method: ${pmName}\n💰 Br ${totalPrice.toFixed(2)}\n📅 ${new Date().toLocaleString()}`);
         showToast('Order placed successfully!','success');
         navigate('dashboard');
     } catch(err){
@@ -580,7 +665,7 @@ async function changePassword(e){
 // ==================== HELP MODAL ====================
 function openHelpModal(){
     document.getElementById('modalOverlay').classList.remove('hidden');
-    document.getElementById('modalContent').innerHTML=`<button class="close-modal" onclick="closeModal()">&times;</button><h3><i class="fas fa-question-circle"></i> How to Use ABM-10 TOPUP</h3><div style="max-height:60vh;overflow-y:auto;"><h4>For Customers</h4><p><strong>1. Browse Services:</strong> Click "Services" in the navigation bar to see all available services. Use the search bar and category filter to find what you need.</p><p><strong>2. Place an Order:</strong> Click on a service, select a package or enter a quantity. The total price updates automatically.</p><p><strong>3. Apply a Coupon:</strong> If you have a coupon code, enter it and click "Apply" to get a discount.</p><p><strong>4. Select Payment Method:</strong> Choose from the available payment methods. You can copy the account number by clicking the copy icon.</p><p><strong>5. Upload Screenshot:</strong> Take a screenshot of your payment and upload it. The image must be JPG, PNG, GIF, or WEBP and less than 400KB.</p><p><strong>6. Submit Order:</strong> Click "Place Order" to complete your purchase. You can track your order status in the Dashboard.</p><h4>For Admins</h4><p><strong>1. Manage Products:</strong> Go to Admin > Products to add, edit, or delete services. For fixed packages, use the "Add Amount" button to create price options.</p><p><strong>2. Manage Orders:</strong> In Admin > Orders, you can accept, reject, or mark orders as completed. The customer will receive a notification.</p><p><strong>3. Payment Methods:</strong> Add your payment accounts in Admin > Payment Methods.</p><p><strong>4. Coupons:</strong> Create discount coupons in Admin > Coupons.</p><p><strong>5. Users:</strong> Manage users, ban/unban accounts, and promote users to admin in Admin > Users.</p><p><strong>6. Bot Settings:</strong> Configure your Telegram bot in Admin > Settings to receive order notifications.</p></div>`;
+    document.getElementById('modalContent').innerHTML=`<button class="close-modal" onclick="closeModal()">&times;</button><h3><i class="fas fa-question-circle"></i> How to Use ABM-10 TOPUP</h3><div style="max-height:60vh;overflow-y:auto;"><h4>For Customers</h4><p><strong>1. Browse Services:</strong> Click "Services" in the navigation bar to see all available services. Use the search bar and category filter to find what you need.</p><p><strong>2. Place an Order:</strong> Click on a service, select a package or enter a quantity. Enter your account/ID where the service should be delivered. The total price updates automatically.</p><p><strong>3. Apply a Coupon:</strong> If you have a coupon code, enter it and click "Apply" to get a discount.</p><p><strong>4. Select Payment Method:</strong> Choose from the available payment methods. You can copy the account number by clicking the copy icon.</p><p><strong>5. Upload Screenshot:</strong> Take a screenshot of your payment and upload it. The image must be JPG, PNG, GIF, or WEBP and less than 5MB (it will be compressed automatically).</p><p><strong>6. Submit Order:</strong> Click "Place Order" to complete your purchase. You can track your order status in the Dashboard.</p><h4>For Admins</h4><p><strong>1. Manage Products:</strong> Go to Admin > Products to add, edit, or delete services. For fixed packages, use the "Add Amount" button to create price options.</p><p><strong>2. Manage Orders:</strong> In Admin > Orders, you can accept, reject, or mark orders as completed. The customer's account/ID is displayed. The customer will receive a notification.</p><p><strong>3. Payment Methods:</strong> Add your payment accounts in Admin > Payment Methods.</p><p><strong>4. Coupons:</strong> Create discount coupons in Admin > Coupons.</p><p><strong>5. Users:</strong> Manage users, ban/unban accounts, and promote users to admin in Admin > Users.</p><p><strong>6. Bot Settings:</strong> Configure your Telegram bot in Admin > Settings to receive order notifications.</p></div>`;
 }
 
 // ==================== ADMIN DASHBOARD ====================
@@ -630,7 +715,7 @@ async function loadAdminOrders(){
     if(filter)query=query.where('status','==',filter);
     const snap=await query.get();
     let orders=snap.docs.map(d=>({id:d.id,...d.data()}));
-    if(search)orders=orders.filter(o=>o.userEmail?.toLowerCase().includes(search)||o.productName?.toLowerCase().includes(search));
+    if(search)orders=orders.filter(o=>o.userEmail?.toLowerCase().includes(search)||o.productName?.toLowerCase().includes(search)||(o.customerAccount||'').toLowerCase().includes(search));
     const container=document.getElementById('adminOrdersList');
     if(orders.length===0) { container.innerHTML='<p>No orders found.</p>'; return; }
     container.innerHTML=orders.map(o=>{
@@ -645,6 +730,7 @@ async function loadAdminOrders(){
                 <strong>${o.productName}</strong> ${o.packageName?`(${o.packageName})`:''}
             </div>
             <div style="font-size:0.9rem;color:var(--text-secondary);margin:0.3rem 0;">
+                Account: <strong>${o.customerAccount || 'N/A'}</strong><br>
                 Qty: ${o.quantity} | Method: ${pmName} | Total: Br ${o.totalPrice?.toFixed(2)}
             </div>
             ${o.screenshotUrl ? `<img src="${o.screenshotUrl}" style="width:50px;height:50px;border-radius:6px;cursor:pointer;margin-right:8px;" onclick="zoomImage('${o.screenshotUrl}')">` : ''}
