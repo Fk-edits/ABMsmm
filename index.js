@@ -432,11 +432,24 @@ function renderPaymentMethodsList(container) {
     container.innerHTML=allPaymentMethods.map((m,i)=>`<div class="payment-method-item" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;cursor:pointer;" onclick="selectPaymentMethod(this,'${m.id}')"><input type="radio" name="paymentMethod" value="${m.id}" ${i===0?'checked':''} style="width:auto;"><div style="flex:1;"><strong>${m.name}</strong><p style="color:var(--text-muted);font-size:0.8rem;">Account: ${m.accountNumber}</p></div><i class="fas fa-copy copy-btn" onclick="event.stopPropagation();copyToClipboard('${m.accountNumber}')"></i></div>`).join('');
 }
 function selectPaymentMethod(el){el.querySelector('input').checked=true;document.querySelectorAll('.payment-method-item').forEach(e=>e.style.borderColor='var(--border)');el.style.borderColor='var(--blue-primary)';}
+
+// ⭐ UPDATED previewScreenshot – 400KB limit
 function previewScreenshot(input){
     const preview=document.getElementById('screenshotPreview');
     if(input.files&&input.files[0]){
-        if(input.files[0].size>500*1024){showToast('File size must be less than 500KB.','error');input.value='';preview.style.display='none';return;}
-        if(!['image/jpeg','image/png','image/gif','image/webp'].includes(input.files[0].type)){showToast('Please upload a valid image (JPG, PNG, GIF, WEBP).','error');input.value='';preview.style.display='none';return;}
+        if(input.files[0].size > 400 * 1024){
+            showToast('File size must be less than 400KB.','error');
+            input.value='';
+            preview.style.display='none';
+            return;
+        }
+        const validTypes = ['image/jpeg','image/png','image/gif','image/webp'];
+        if(!validTypes.includes(input.files[0].type)){
+            showToast('Please upload a valid image (JPG, PNG, GIF, WEBP).','error');
+            input.value='';
+            preview.style.display='none';
+            return;
+        }
         const reader=new FileReader();
         reader.onload=e=>{preview.src=e.target.result;preview.style.display='block';};
         reader.readAsDataURL(input.files[0]);
@@ -459,38 +472,55 @@ async function applyCoupon(){
     appliedCoupon=coupon;
     showToast(`Coupon applied: ${coupon.discount}% discount!`,'success');
 }
+
+// ⭐ UPDATED submitOrder – 400KB limit, timeout notice, robust FileReader
 async function submitOrder(){
     if(!currentUser){showToast('Please log in first.','error');navigate('login');return;}
-    const p=selectedProduct;if(!p)return;
+    const p=selectedProduct; if(!p)return;
     const fileInput=document.getElementById('paymentScreenshot');
     const file=fileInput?.files[0];
     if(!file){showToast('Please upload a payment screenshot.','error');return;}
-    if(file.size>500*1024){showToast('File size must be less than 500KB.','error');return;}
-    if(!['image/jpeg','image/png','image/gif','image/webp'].includes(file.type)){showToast('Please upload a valid image.','error');return;}
+    if(file.size > 400 * 1024){showToast('File size must be less than 400KB.','error');return;}
+    const validTypes = ['image/jpeg','image/png','image/gif','image/webp'];
+    if(!validTypes.includes(file.type)){showToast('Please upload a valid image.','error');return;}
     const pmId=document.querySelector('input[name="paymentMethod"]:checked')?.value;
     if(!pmId){showToast('Please select a payment method.','error');return;}
-    let qty,total=parseFloat(document.getElementById('orderTotal').textContent),pkgName=null;
+    let quantity, totalPrice, packageName=null;
     const packages=p.amounts||p.packages||[];
-    if(packages.length){const sel=document.getElementById('packageSelect');pkgName=sel?.options[sel.selectedIndex]?.dataset?.name||packages[0].name;qty=1;}
-    else{qty=parseInt(document.getElementById('quantityInput')?.value||p.minQty||100);}
+    if(packages.length){const sel=document.getElementById('packageSelect');packageName=sel?.options[sel.selectedIndex]?.dataset?.name||packages[0].name;totalPrice=parseFloat(document.getElementById('orderTotal').textContent);quantity=1;}
+    else{quantity=parseInt(document.getElementById('quantityInput')?.value||p.minQty||100);totalPrice=parseFloat(document.getElementById('orderTotal').textContent);}
     const btn=document.getElementById('submitOrderBtn');
-    btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Processing...';
-    const reader=new FileReader();
-    reader.onload=async(e)=>{
-        const base64=e.target.result;
-        try{
-            const orderData={userId:currentUser.uid,userEmail:currentUser.email,productId:p.id,productName:p.name,category:p.category,quantity:qty,totalPrice:total,originalPrice:orderTotalBeforeCoupon,packageName:pkgName,paymentMethodId:pmId,screenshotUrl:base64,couponApplied:appliedCoupon?{code:appliedCoupon.code,discount:appliedCoupon.discount}:null,status:'pending',createdAt:Date.now(),updatedAt:Date.now()};
-            await db.collection('orders').add(orderData);
-            if(appliedCoupon) await db.collection('coupons').doc(appliedCoupon.id).update({used:firebase.firestore.FieldValue.increment(1)});
-            await db.collection('notifications').add({targetId:'admin',title:'New Order Received',message:`${currentUser.email} placed an order for ${p.name} — Br ${total.toFixed(2)}`,read:false,createdAt:Date.now()});
-            const pmName = allPaymentMethods.find(m=>m.id===pmId)?.name || 'Unknown';
-            let tgMsg = `🔔 <b>New Order</b>\n\n👤 ${currentUser.email}\n📦 ${p.name}${pkgName?` (${pkgName})`:''}\n🔢 Qty: ${qty}\n💳 Method: ${pmName}\n💰 Br ${total.toFixed(2)}\n📅 ${new Date().toLocaleString()}`;
-            await sendTelegramNotification(tgMsg);
-            showToast('Order placed successfully!','success');
-            navigate('dashboard');
-        }catch(err){showToast('Error placing order: '+err.message,'error');btn.disabled=false;btn.innerHTML='<i class="fas fa-paper-plane"></i> Place Order';}
-    };
-    reader.readAsDataURL(file);
+    const origText=btn.innerHTML;
+    btn.disabled=true;
+    btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Optimizing image…';
+    const timeoutId = setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = origText;
+        showToast('Request timed out. Please try again.','error');
+    }, 30000);
+    try {
+        const base64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => { showToast('Failed to read the image. Try a smaller file.','error'); reject(new Error('FileReader error')); };
+            reader.readAsDataURL(file);
+        });
+        clearTimeout(timeoutId);
+        const orderData={userId:currentUser.uid,userEmail:currentUser.email,productId:p.id,productName:p.name,category:p.category,quantity,totalPrice,originalPrice:orderTotalBeforeCoupon,packageName,paymentMethodId:pmId,screenshotUrl:base64,couponApplied:appliedCoupon?{code:appliedCoupon.code,discount:appliedCoupon.discount}:null,status:'pending',createdAt:Date.now(),updatedAt:Date.now()};
+        await db.collection('orders').add(orderData);
+        if(appliedCoupon) await db.collection('coupons').doc(appliedCoupon.id).update({used:firebase.firestore.FieldValue.increment(1)});
+        await db.collection('notifications').add({targetId:'admin',title:'New Order Received',message:`${currentUser.email} placed an order for ${p.name} — Br ${totalPrice.toFixed(2)}`,read:false,createdAt:Date.now()});
+        const pmName = allPaymentMethods.find(m=>m.id===pmId)?.name || 'Unknown';
+        sendTelegramNotification(`🔔 <b>New Order</b>\n\n👤 ${currentUser.email}\n📦 ${p.name}${packageName?` (${packageName})`:''}\n🔢 Qty: ${quantity}\n💳 Method: ${pmName}\n💰 Br ${totalPrice.toFixed(2)}\n📅 ${new Date().toLocaleString()}`);
+        showToast('Order placed successfully!','success');
+        navigate('dashboard');
+    } catch(err){
+        clearTimeout(timeoutId);
+        console.error('Order failed:', err);
+        showToast('Error placing order: ' + (err.message || 'Unknown error'), 'error');
+        btn.disabled = false;
+        btn.innerHTML = origText;
+    }
 }
 
 // ==================== USER DASHBOARD ====================
@@ -550,7 +580,7 @@ async function changePassword(e){
 // ==================== HELP MODAL ====================
 function openHelpModal(){
     document.getElementById('modalOverlay').classList.remove('hidden');
-    document.getElementById('modalContent').innerHTML=`<button class="close-modal" onclick="closeModal()">&times;</button><h3><i class="fas fa-question-circle"></i> How to Use ABM-10 TOPUP</h3><div style="max-height:60vh;overflow-y:auto;"><h4>For Customers</h4><p><strong>1. Browse Services:</strong> Click "Services" in the navigation bar to see all available services. Use the search bar and category filter to find what you need.</p><p><strong>2. Place an Order:</strong> Click on a service, select a package or enter a quantity. The total price updates automatically.</p><p><strong>3. Apply a Coupon:</strong> If you have a coupon code, enter it and click "Apply" to get a discount.</p><p><strong>4. Select Payment Method:</strong> Choose from the available payment methods. You can copy the account number by clicking the copy icon.</p><p><strong>5. Upload Screenshot:</strong> Take a screenshot of your payment and upload it. The image must be JPG, PNG, GIF, or WEBP and less than 500KB.</p><p><strong>6. Submit Order:</strong> Click "Place Order" to complete your purchase. You can track your order status in the Dashboard.</p><h4>For Admins</h4><p><strong>1. Manage Products:</strong> Go to Admin > Products to add, edit, or delete services. For fixed packages, use the "Add Amount" button to create price options.</p><p><strong>2. Manage Orders:</strong> In Admin > Orders, you can accept, reject, or mark orders as completed. The customer will receive a notification.</p><p><strong>3. Payment Methods:</strong> Add your payment accounts in Admin > Payment Methods.</p><p><strong>4. Coupons:</strong> Create discount coupons in Admin > Coupons.</p><p><strong>5. Users:</strong> Manage users, ban/unban accounts, and promote users to admin in Admin > Users.</p><p><strong>6. Bot Settings:</strong> Configure your Telegram bot in Admin > Settings to receive order notifications.</p></div>`;
+    document.getElementById('modalContent').innerHTML=`<button class="close-modal" onclick="closeModal()">&times;</button><h3><i class="fas fa-question-circle"></i> How to Use ABM-10 TOPUP</h3><div style="max-height:60vh;overflow-y:auto;"><h4>For Customers</h4><p><strong>1. Browse Services:</strong> Click "Services" in the navigation bar to see all available services. Use the search bar and category filter to find what you need.</p><p><strong>2. Place an Order:</strong> Click on a service, select a package or enter a quantity. The total price updates automatically.</p><p><strong>3. Apply a Coupon:</strong> If you have a coupon code, enter it and click "Apply" to get a discount.</p><p><strong>4. Select Payment Method:</strong> Choose from the available payment methods. You can copy the account number by clicking the copy icon.</p><p><strong>5. Upload Screenshot:</strong> Take a screenshot of your payment and upload it. The image must be JPG, PNG, GIF, or WEBP and less than 400KB.</p><p><strong>6. Submit Order:</strong> Click "Place Order" to complete your purchase. You can track your order status in the Dashboard.</p><h4>For Admins</h4><p><strong>1. Manage Products:</strong> Go to Admin > Products to add, edit, or delete services. For fixed packages, use the "Add Amount" button to create price options.</p><p><strong>2. Manage Orders:</strong> In Admin > Orders, you can accept, reject, or mark orders as completed. The customer will receive a notification.</p><p><strong>3. Payment Methods:</strong> Add your payment accounts in Admin > Payment Methods.</p><p><strong>4. Coupons:</strong> Create discount coupons in Admin > Coupons.</p><p><strong>5. Users:</strong> Manage users, ban/unban accounts, and promote users to admin in Admin > Users.</p><p><strong>6. Bot Settings:</strong> Configure your Telegram bot in Admin > Settings to receive order notifications.</p></div>`;
 }
 
 // ==================== ADMIN DASHBOARD ====================
@@ -671,7 +701,7 @@ async function saveProduct(e,productId){
     if(orderType==='custom'){data.price=parseFloat(document.getElementById('prodPrice').value)||0;data.minQty=parseInt(document.getElementById('prodMinQty').value)||10;data.maxQty=parseInt(document.getElementById('prodMaxQty').value)||100000;data.amounts=null;}
     else{const rows=document.querySelectorAll('#amountsContainer .amount-row');const amounts=[];rows.forEach(row=>{const n=row.querySelector('.amount-name')?.value.trim();const p=parseFloat(row.querySelector('.amount-price')?.value)||0;const nt=row.querySelector('.amount-note')?.value.trim()||'';if(n&&p)amounts.push({name:n,price:p,note:nt});});if(!amounts.length){showToast('Add at least one amount.','error');btn.disabled=false;btn.innerHTML=orig;return;}data.amounts=amounts;data.price=amounts[0].price;data.packages=null;}
     const file=document.getElementById('prodImageFile')?.files[0];
-    if(file){if(file.size>500*1024){showToast('Image size must be less than 500KB.','error');btn.disabled=false;btn.innerHTML=orig;return;}if(!['image/jpeg','image/png','image/gif','image/webp'].includes(file.type)){showToast('Please upload a valid image.','error');btn.disabled=false;btn.innerHTML=orig;return;}const reader=new FileReader();reader.onload=async(ev)=>{data.imageUrl=ev.target.result;await saveProductData(productId,data,btn,orig);};reader.readAsDataURL(file);}
+    if(file){if(file.size>400*1024){showToast('Image size must be less than 400KB.','error');btn.disabled=false;btn.innerHTML=orig;return;}if(!['image/jpeg','image/png','image/gif','image/webp'].includes(file.type)){showToast('Please upload a valid image.','error');btn.disabled=false;btn.innerHTML=orig;return;}const reader=new FileReader();reader.onload=async(ev)=>{data.imageUrl=ev.target.result;await saveProductData(productId,data,btn,orig);};reader.readAsDataURL(file);}
     else{if(productId){const existing=allProducts.find(p=>p.id===productId);if(existing?.imageUrl)data.imageUrl=existing.imageUrl;}await saveProductData(productId,data,btn,orig);}
 }
 async function saveProductData(productId,data,btn,orig){try{if(productId)await db.collection('products').doc(productId).update(data);else{data.createdAt=Date.now();await db.collection('products').add(data);}setCache(CACHE_KEY_PRODUCTS,null);closeModal();showToast('Product saved!','success');loadAdminProducts();}catch(err){showToast('Error: '+err.message,'error');}finally{btn.disabled=false;btn.innerHTML=orig;}}
