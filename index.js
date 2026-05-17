@@ -284,9 +284,9 @@ function renderHome(app) {
         <footer style="background:var(--bg-secondary);border-top:1px solid var(--border);padding:2rem;text-align:center;">
             <div class="dev-credit">
                 <img src="dev.png" alt="Nexora" onerror="this.style.display='none'">
-                <span>Powered by <a href="https://t.me/nexora_creatives" target="_blank">Nexora</a> — @nexora_creatives</span>
+                <span>Powered by <a href="https://t.me/NexoraET" target="_blank">Nexora</a> — @NexoraET</span>
             </div>
-            <p style="color:var(--text-muted);font-size:0.8rem;">© 2026 ABM-10 TOPUP. All rights reserved. | <a href="https://t.me/abm10topup" target="_blank" style="color:var(--blue-light);">@abm10topup</a></p>
+            <p style="color:var(--text-muted);font-size:0.8rem;">© 2026 ABM-10 TOPUP. All rights reserved. | <a href="https://t.me/ihaveonequestion1" target="_blank" style="color:var(--blue-light);">@ihaveonequestion1</a></p>
         </footer>
     `;
     loadPopularProducts();
