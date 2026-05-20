@@ -69,19 +69,20 @@ let appliedCoupon = null;
 let orderTotalBeforeCoupon = 0;
 let botSettings = null;
 
-// ==================== CATEGORY ICON MAPPER ====================
+// ==================== CATEGORY ICON MAPPER (fixed) ====================
 function getCategoryIcon(category) {
-    const map = {
-        'Telegram Services': 'fa-paper-plane',
-        'TikTok Services': 'fa-music',
-        'Instagram Services': 'fa-instagram',
-        'YouTube Services': 'fa-youtube',
-        'PUBG UC': 'fa-gamepad',
-        'Free Fire Diamonds': 'fa-gem',
-        'Other Digital Services': 'fa-globe',
-        'Accounts/Channels': 'fa-store'
-    };
-    return map[category] || 'fa-star';
+    if (!category) return 'fa-star';
+    const lower = category.toLowerCase();
+    // Check for partial matches to cover all possible admin inputs
+    if (lower.includes('telegram')) return 'fa-paper-plane';
+    if (lower.includes('tiktok')) return 'fa-music';
+    if (lower.includes('instagram')) return 'fa-instagram';
+    if (lower.includes('youtube')) return 'fa-youtube';
+    if (lower.includes('pubg')) return 'fa-gamepad';
+    if (lower.includes('free fire') || lower.includes('diamond')) return 'fa-gem';
+    if (lower.includes('account') || lower.includes('channel')) return 'fa-store';
+    if (lower.includes('other') || lower.includes('digital')) return 'fa-globe';
+    return 'fa-star';
 }
 
 // ==================== TELEGRAM BOT NOTIFICATION ====================
@@ -152,9 +153,15 @@ function setupRealTimeListeners() {
         unsubscribeAdminOrders = db.collection('orders').where('status', '==', 'pending').onSnapshot(snap => {
             snap.docChanges().forEach(change => {
                 if (change.type === 'added') {
+                    const order = { id: change.doc.id, ...change.doc.data() };
                     notificationCount = snap.size;
                     updateNavUI();
-                    showToast(`New order from ${change.doc.data().userEmail}`, 'info');
+                    showToast(`New order from ${order.userEmail}`, 'info');
+                    // 🔔 Send Telegram notification from admin side
+                    const pmName = allPaymentMethods.find(m => m.id === order.paymentMethodId)?.name || 'Unknown';
+                    const tgMsg = `🔔 <b>New Order</b>\n\n👤 ${order.userEmail}\n📦 ${order.productName}${order.packageName ? ` (${order.packageName})` : ''}\n👤 Account: ${order.customerAccount || 'N/A'}\n🔢 Qty: ${order.quantity}\n💳 Method: ${pmName}\n💰 Br ${order.totalPrice?.toFixed(2)}\n📅 ${new Date(order.createdAt).toLocaleString()}`;
+                    sendTelegramNotification(tgMsg);
+                    // Refresh admin views
                     if (currentView === 'admin') {
                         if (adminSubView === 'overview') loadAdminOverview();
                         if (adminSubView === 'orders') loadAdminOrders();
@@ -271,7 +278,7 @@ function renderHome(app) {
             <div class="category-grid">
                 ${['Telegram','TikTok','Instagram','YouTube','PUBG UC','Free Fire','Accounts','More'].map(cat => `
                     <div class="category-item" onclick="navigate('products')">
-                        <i class="fas ${getCategoryIcon(cat==='Accounts'?'Accounts/Channels':cat+' Services')}"></i>
+                        <i class="fas ${getCategoryIcon(cat)}"></i>
                         <div style="font-weight:600;font-size:0.9rem;margin-top:0.5rem;">${cat}</div>
                     </div>
                 `).join('')}
@@ -284,9 +291,9 @@ function renderHome(app) {
         <footer style="background:var(--bg-secondary);border-top:1px solid var(--border);padding:2rem;text-align:center;">
             <div class="dev-credit">
                 <img src="dev.png" alt="Nexora" onerror="this.style.display='none'">
-                <span>Powered by <a href="https://t.me/NexoraET" target="_blank">Nexora</a> — @NexoraET</span>
+                <span>Powered by <a href="https://t.me/nexora_creatives" target="_blank">Nexora</a> — @nexora_creatives</span>
             </div>
-            <p style="color:var(--text-muted);font-size:0.8rem;">© 2026 ABM-10 TOPUP. All rights reserved. | <a href="https://t.me/ihaveonequestion1" target="_blank" style="color:var(--blue-light);">@ihaveonequestion1</a></p>
+            <p style="color:var(--text-muted);font-size:0.8rem;">© 2026 ABM-10 TOPUP. All rights reserved. | <a href="https://t.me/abm10topup" target="_blank" style="color:var(--gold-light);">@abm10topup</a></p>
         </footer>
     `;
     loadPopularProducts();
@@ -314,7 +321,7 @@ async function loadPopularProducts() {
 // ==================== AUTH PAGES (unchanged) ====================
 function renderAuthPage(app, type) {
     const isLogin = type === 'login';
-    app.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:80px 1rem 2rem;"><div class="glass-card-static" style="max-width:440px;width:100%;padding:2.5rem;"><div style="text-align:center;margin-bottom:1.5rem;"><i class="fas ${isLogin?'fa-sign-in-alt':'fa-user-plus'} fa-2x" style="color:var(--blue-light);"></i><h2 style="margin-top:0.5rem;">${isLogin?'Welcome Back':'Create Account'}</h2><p style="color:var(--text-muted);font-size:0.85rem;">${isLogin?'Sign in to your account':'Join ABM-10 TOPUP today'}</p></div><form id="authForm" onsubmit="handleAuth(event,'${type}')"><div class="form-group"><label><i class="fas fa-envelope"></i> Email</label><input type="email" id="authEmail" required placeholder="your@email.com" autocomplete="email"></div><div class="form-group"><label><i class="fas fa-lock"></i> Password</label><input type="password" id="authPassword" required placeholder="••••••••" minlength="6"></div>${!isLogin?`<div class="form-group"><label><i class="fas fa-lock"></i> Confirm Password</label><input type="password" id="authConfirmPassword" required placeholder="••••••••" minlength="6"></div>`:''}<button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;"><i class="fas ${isLogin?'fa-sign-in-alt':'fa-user-plus'}"></i> ${isLogin?'Sign In':'Create Account'}</button></form><div style="text-align:center;margin:1rem 0;color:var(--text-muted);">— or —</div><button class="btn btn-outline" style="width:100%;justify-content:center;" onclick="handleGoogleLogin()"><i class="fab fa-google"></i> Continue with Google</button><p style="text-align:center;margin-top:1.2rem;font-size:0.85rem;">${isLogin?`Don't have an account? <a onclick="navigate('register')" style="color:var(--blue-light);cursor:pointer;">Register here</a>`:`Already have an account? <a onclick="navigate('login')" style="color:var(--blue-light);cursor:pointer;">Sign in</a>`}</p>${isLogin?`<p style="text-align:center;margin-top:0.5rem;"><a onclick="handleForgotPassword()" style="color:var(--text-muted);font-size:0.8rem;cursor:pointer;">Forgot password?</a></p>`:''}</div></div>`;
+    app.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:80px 1rem 2rem;"><div class="glass-card-static" style="max-width:440px;width:100%;padding:2.5rem;"><div style="text-align:center;margin-bottom:1.5rem;"><i class="fas ${isLogin?'fa-sign-in-alt':'fa-user-plus'} fa-2x" style="color:var(--gold-light);"></i><h2 style="margin-top:0.5rem;">${isLogin?'Welcome Back':'Create Account'}</h2><p style="color:var(--text-muted);font-size:0.85rem;">${isLogin?'Sign in to your account':'Join ABM-10 TOPUP today'}</p></div><form id="authForm" onsubmit="handleAuth(event,'${type}')"><div class="form-group"><label><i class="fas fa-envelope"></i> Email</label><input type="email" id="authEmail" required placeholder="your@email.com" autocomplete="email"></div><div class="form-group"><label><i class="fas fa-lock"></i> Password</label><input type="password" id="authPassword" required placeholder="••••••••" minlength="6"></div>${!isLogin?`<div class="form-group"><label><i class="fas fa-lock"></i> Confirm Password</label><input type="password" id="authConfirmPassword" required placeholder="••••••••" minlength="6"></div>`:''}<button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;"><i class="fas ${isLogin?'fa-sign-in-alt':'fa-user-plus'}"></i> ${isLogin?'Sign In':'Create Account'}</button></form><div style="text-align:center;margin:1rem 0;color:var(--text-muted);">— or —</div><button class="btn btn-outline" style="width:100%;justify-content:center;" onclick="handleGoogleLogin()"><i class="fab fa-google"></i> Continue with Google</button><p style="text-align:center;margin-top:1.2rem;font-size:0.85rem;">${isLogin?`Don't have an account? <a onclick="navigate('register')" style="color:var(--gold-light);cursor:pointer;">Register here</a>`:`Already have an account? <a onclick="navigate('login')" style="color:var(--gold-light);cursor:pointer;">Sign in</a>`}</p>${isLogin?`<p style="text-align:center;margin-top:0.5rem;"><a onclick="handleForgotPassword()" style="color:var(--text-muted);font-size:0.8rem;cursor:pointer;">Forgot password?</a></p>`:''}</div></div>`;
 }
 async function handleAuth(e, type) {
     e.preventDefault();
@@ -398,23 +405,14 @@ function renderProductDetailPage(app) {
     const packages = p.amounts||p.packages||[];
     orderTotalBeforeCoupon = packages.length?packages[0].price:((p.price||0)*(p.minQty||100));
     appliedCoupon = null;
-    app.innerHTML = `<div style="padding:80px 2rem 2rem;max-width:700px;margin:0 auto;"><button class="btn btn-outline btn-sm" onclick="navigate('products')"><i class="fas fa-arrow-left"></i> Back</button><div class="glass-card-static" style="padding:2rem;margin-top:1rem;"><div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">${p.imageUrl?`<img src="${p.imageUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:12px;">`:`<div style="width:80px;height:80px;border-radius:12px;background:var(--blue-gradient);display:flex;align-items:center;justify-content:center;"><i class="fas ${getCategoryIcon(p.category)} fa-2x" style="color:#fff;"></i></div>`}<div><h2>${p.name}</h2><p style="color:var(--text-muted);">${p.category} | ${p.deliveryTime||'1-24h'}</p></div></div>${p.description?`<p style="margin-top:1rem;color:var(--text-secondary);">${p.description}</p>`:''}<div id="orderForm" style="border-top:1px solid var(--border);padding-top:1.5rem;"><h4><i class="fas fa-shopping-cart"></i> Place Your Order</h4>${packages.length?`<div class="form-group"><label>Select Package</label><select id="packageSelect" onchange="updateOrderTotal()">${packages.map(pk=>`<option value="${pk.price}" data-name="${pk.name}" data-note="${pk.note||''}">${pk.name} — Br ${pk.price.toFixed(2)}</option>`).join('')}</select><small id="packageNote" style="color:var(--orange);display:block;margin-top:4px;"></small></div>`:`<div class="form-group"><label>Quantity (${p.minQty||10} — ${p.maxQty||100000})</label><input type="number" id="quantityInput" min="${p.minQty||10}" max="${p.maxQty||100000}" value="${p.minQty||100}" oninput="updateOrderTotal()"></div>`}<div style="font-size:2rem;font-weight:700;color:var(--blue-light);text-align:center;">Total: Br <span id="orderTotal">${orderTotalBeforeCoupon.toFixed(2)}</span></div>
-    <!-- ⭐ NEW: Customer account/ID field -->
-    <div class="form-group">
-        <label><i class="fas fa-user"></i> Your Account / ID</label>
-        <input type="text" id="customerAccount" placeholder="e.g. @username, PUBG ID, video URL" required>
-        <small style="color:var(--orange);">This is where we'll deliver your service. Make sure it's correct!</small>
-    </div>
+    app.innerHTML = `<div style="padding:80px 2rem 2rem;max-width:700px;margin:0 auto;"><button class="btn btn-outline btn-sm" onclick="navigate('products')"><i class="fas fa-arrow-left"></i> Back</button><div class="glass-card-static" style="padding:2rem;margin-top:1rem;"><div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">${p.imageUrl?`<img src="${p.imageUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:12px;">`:`<div style="width:80px;height:80px;border-radius:12px;background:var(--gold-gradient);display:flex;align-items:center;justify-content:center;"><i class="fas ${getCategoryIcon(p.category)} fa-2x" style="color:#000;"></i></div>`}<div><h2>${p.name}</h2><p style="color:var(--text-muted);">${p.category} | ${p.deliveryTime||'1-24h'}</p></div></div>${p.description?`<p style="margin-top:1rem;color:var(--text-secondary);">${p.description}</p>`:''}<div id="orderForm" style="border-top:1px solid var(--border);padding-top:1.5rem;"><h4><i class="fas fa-shopping-cart"></i> Place Your Order</h4>${packages.length?`<div class="form-group"><label>Select Package</label><select id="packageSelect" onchange="updateOrderTotal()">${packages.map(pk=>`<option value="${pk.price}" data-name="${pk.name}" data-note="${pk.note||''}">${pk.name} — Br ${pk.price.toFixed(2)}</option>`).join('')}</select><small id="packageNote" style="color:var(--orange);display:block;margin-top:4px;"></small></div>`:`<div class="form-group"><label>Quantity (${p.minQty||10} — ${p.maxQty||100000})</label><input type="number" id="quantityInput" min="${p.minQty||10}" max="${p.maxQty||100000}" value="${p.minQty||100}" oninput="updateOrderTotal()"></div>`}<div style="font-size:2rem;font-weight:700;color:var(--gold-light);text-align:center;">Total: Br <span id="orderTotal">${orderTotalBeforeCoupon.toFixed(2)}</span></div>
+    <div class="form-group"><label><i class="fas fa-user"></i> Your Account / ID</label><input type="text" id="customerAccount" placeholder="e.g. @username, PUBG ID, video URL" required><small style="color:var(--orange);">This is where we'll deliver your service. Make sure it's correct!</small></div>
     <div class="form-group"><label>Coupon Code (Optional)</label><div style="display:flex;gap:8px;"><input type="text" id="couponCodeInput" placeholder="Enter code"><button class="btn btn-outline btn-sm" onclick="applyCoupon()">Apply</button></div><small id="couponStatus" style="color:var(--green);display:none;"></small></div>
     <div class="form-group"><label>Payment Method</label><div id="paymentMethodsList">Loading...</div></div>
     <div class="form-group"><label>Upload Payment Screenshot</label><div class="file-upload-wrapper"><input type="file" id="paymentScreenshot" accept="image/*" onchange="previewScreenshot(this)"><div class="file-upload-label"><i class="fas fa-cloud-upload-alt"></i> Choose Image</div></div><img id="screenshotPreview" style="max-width:200px;margin-top:10px;border-radius:8px;display:none;"></div>
     <button class="btn btn-primary btn-lg" style="width:100%;" onclick="submitOrder()" id="submitOrderBtn" ${currentUser?'':'disabled'}><i class="fas fa-paper-plane"></i> Place Order</button>
-    ${!currentUser?'<p style="text-align:center;margin-top:12px;color:var(--text-muted);">Please <a onclick="navigate(\'login\')" style="color:var(--blue-light);cursor:pointer;">log in</a> to place an order.</p>':''}
-    <!-- ⭐ NEW: Admin contact link -->
-    <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);margin-top:10px;">
-        <i class="fab fa-telegram"></i> Need help? Contact admin: 
-        <a href="https://t.me/ihaveonequestion1" target="_blank" style="color:var(--blue-light);">@ihaveonequestion1</a>
-    </p>
+    ${!currentUser?'<p style="text-align:center;margin-top:12px;color:var(--text-muted);">Please <a onclick="navigate(\'login\')" style="color:var(--gold-light);cursor:pointer;">log in</a> to place an order.</p>':''}
+    <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);margin-top:10px;"><i class="fab fa-telegram"></i> Need help? Contact admin: <a href="https://t.me/ihaveonequestion1" target="_blank" style="color:var(--gold-light);">@ihaveonequestion1</a></p>
     </div></div></div>`;
     if(packages.length){
         const sel = document.getElementById('packageSelect');
@@ -448,13 +446,11 @@ function renderPaymentMethodsList(container) {
     if(!allPaymentMethods.length){container.innerHTML='<p style="color:var(--text-muted);">No payment methods available.</p>';return;}
     container.innerHTML=allPaymentMethods.map((m,i)=>`<div class="payment-method-item" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;cursor:pointer;" onclick="selectPaymentMethod(this,'${m.id}')"><input type="radio" name="paymentMethod" value="${m.id}" ${i===0?'checked':''} style="width:auto;"><div style="flex:1;"><strong>${m.name}</strong><p style="color:var(--text-muted);font-size:0.8rem;">Account: ${m.accountNumber}</p></div><i class="fas fa-copy copy-btn" onclick="event.stopPropagation();copyToClipboard('${m.accountNumber}')"></i></div>`).join('');
 }
-function selectPaymentMethod(el){el.querySelector('input').checked=true;document.querySelectorAll('.payment-method-item').forEach(e=>e.style.borderColor='var(--border)');el.style.borderColor='var(--blue-primary)';}
-
-// ⭐ UPDATED previewScreenshot – keeps original preview, compression only on submit
+function selectPaymentMethod(el){el.querySelector('input').checked=true;document.querySelectorAll('.payment-method-item').forEach(e=>e.style.borderColor='var(--border)');el.style.borderColor='var(--gold-primary)';}
 function previewScreenshot(input){
     const preview=document.getElementById('screenshotPreview');
     if(input.files&&input.files[0]){
-        if(input.files[0].size > 5 * 1024 * 1024){  // still warn about huge files
+        if(input.files[0].size > 5 * 1024 * 1024){
             showToast('File size must be less than 5MB.','error');
             input.value='';
             preview.style.display='none';
@@ -472,40 +468,24 @@ function previewScreenshot(input){
         reader.readAsDataURL(input.files[0]);
     }
 }
-
-// ⭐ NEW: Image compression helper
 async function compressImage(file, maxSizeKB = 400) {
-    // Only compress if file is already an image and larger than the target size
-    if (!file.type.startsWith('image/') || file.size <= maxSizeKB * 1024) {
-        return file; // no compression needed
-    }
+    if (!file.type.startsWith('image/') || file.size <= maxSizeKB * 1024) return file;
     return new Promise((resolve, reject) => {
         const img = new Image();
         const url = URL.createObjectURL(file);
         img.onload = () => {
             URL.revokeObjectURL(url);
             const canvas = document.createElement('canvas');
-            let width = img.width;
-            let height = img.height;
-            // Max width 800px for reasonable size
-            if (width > 800) {
-                height = Math.round((800 / width) * height);
-                width = 800;
-            }
-            canvas.width = width;
-            canvas.height = height;
+            let width = img.width, height = img.height;
+            if (width > 800) { height = Math.round((800/width)*height); width = 800; }
+            canvas.width = width; canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
-            // Try to get a JPEG blob under the size limit
-            canvas.toBlob((blob) => {
-                if (!blob) {
-                    reject(new Error('Canvas compression failed'));
-                    return;
-                }
-                // If still too large, reduce quality further (shouldn't happen often)
+            canvas.toBlob(blob => {
+                if (!blob) return reject(new Error('Compression failed'));
                 if (blob.size > maxSizeKB * 1024) {
-                    canvas.toBlob((blob2) => {
-                        if (!blob2) reject(new Error('Canvas compression failed'));
+                    canvas.toBlob(blob2 => {
+                        if (!blob2) reject(new Error('Compression failed'));
                         else resolve(new File([blob2], file.name, { type: 'image/jpeg' }));
                     }, 'image/jpeg', 0.5);
                 } else {
@@ -513,11 +493,10 @@ async function compressImage(file, maxSizeKB = 400) {
                 }
             }, 'image/jpeg', 0.7);
         };
-        img.onerror = () => reject(new Error('Failed to load image for compression'));
+        img.onerror = () => reject(new Error('Failed to load image'));
         img.src = url;
     });
 }
-
 async function applyCoupon(){
     const code=document.getElementById('couponCodeInput')?.value.trim().toUpperCase();
     const statusEl=document.getElementById('couponStatus');
@@ -536,16 +515,11 @@ async function applyCoupon(){
     showToast(`Coupon applied: ${coupon.discount}% discount!`,'success');
 }
 
-// ⭐ UPDATED submitOrder – uses compressed image, adds customerAccount
 async function submitOrder(){
     if(!currentUser){showToast('Please log in first.','error');navigate('login');return;}
     const p=selectedProduct; if(!p)return;
-    // Read customer account/ID
     const customerAccount = document.getElementById('customerAccount')?.value.trim();
-    if(!customerAccount){
-        showToast('Please enter your account/ID.','error');
-        return;
-    }
+    if(!customerAccount){showToast('Please enter your account/ID.','error');return;}
     const fileInput=document.getElementById('paymentScreenshot');
     const file=fileInput?.files[0];
     if(!file){showToast('Please upload a payment screenshot.','error');return;}
@@ -563,9 +537,8 @@ async function submitOrder(){
         btn.disabled = false;
         btn.innerHTML = origText;
         showToast('Request timed out. Please try again.','error');
-    }, 45000);  // 45 seconds
+    }, 45000);
     try {
-        // Compress image if needed
         const compressedFile = await compressImage(file, 400);
         const base64 = await new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -586,7 +559,7 @@ async function submitOrder(){
             packageName,
             paymentMethodId:pmId,
             screenshotUrl:base64,
-            customerAccount:customerAccount,     // ⭐ NEW
+            customerAccount,
             couponApplied:appliedCoupon?{code:appliedCoupon.code,discount:appliedCoupon.discount}:null,
             status:'pending',
             createdAt:Date.now(),
@@ -595,8 +568,7 @@ async function submitOrder(){
         await db.collection('orders').add(orderData);
         if(appliedCoupon) await db.collection('coupons').doc(appliedCoupon.id).update({used:firebase.firestore.FieldValue.increment(1)});
         await db.collection('notifications').add({targetId:'admin',title:'New Order Received',message:`${currentUser.email} placed an order for ${p.name} — Br ${totalPrice.toFixed(2)}`,read:false,createdAt:Date.now()});
-        const pmName = allPaymentMethods.find(m=>m.id===pmId)?.name || 'Unknown';
-        sendTelegramNotification(`🔔 <b>New Order</b>\n\n👤 ${currentUser.email}\n📦 ${p.name}${packageName?` (${packageName})`:''}\n👤 Account: ${customerAccount}\n🔢 Qty: ${quantity}\n💳 Method: ${pmName}\n💰 Br ${totalPrice.toFixed(2)}\n📅 ${new Date().toLocaleString()}`);
+        // Telegram notification is now handled by admin listener (no need here)
         showToast('Order placed successfully!','success');
         navigate('dashboard');
     } catch(err){
@@ -610,7 +582,7 @@ async function submitOrder(){
 
 // ==================== USER DASHBOARD ====================
 function renderUserDashboard(app){
-    app.innerHTML=`<div class="dashboard-layout"><div class="sidebar" id="userSidebar"><div style="text-align:center;padding:1rem 0;border-bottom:1px solid var(--border);margin-bottom:1rem;"><i class="fas fa-user-circle fa-3x" style="color:var(--blue-light);"></i><p style="margin-top:0.5rem;font-weight:600;">${currentUser?.email||'User'}</p><span class="badge badge-info">${isAdmin?'Admin':'Customer'}</span></div><ul class="sidebar-nav"><li><a class="${userDashTab==='orders'?'active':''}" onclick="setUserDashTab('orders')"><i class="fas fa-shopping-cart"></i> My Orders</a></li><li><a class="${userDashTab==='notifications'?'active':''}" onclick="setUserDashTab('notifications')"><i class="fas fa-bell"></i> Notifications ${notificationCount>0?`<span class="badge badge-pending" style="margin-left:auto;">${notificationCount}</span>`:''}</a></li><li><a class="${userDashTab==='settings'?'active':''}" onclick="setUserDashTab('settings')"><i class="fas fa-cog"></i> Settings</a></li><li><a onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li></ul></div><div class="main-content" id="userDashContent">${renderUserDashContent()}</div></div>`;
+    app.innerHTML=`<div class="dashboard-layout"><div class="sidebar" id="userSidebar"><div style="text-align:center;padding:1rem 0;border-bottom:1px solid var(--border);margin-bottom:1rem;"><i class="fas fa-user-circle fa-3x" style="color:var(--gold-light);"></i><p style="margin-top:0.5rem;font-weight:600;">${currentUser?.email||'User'}</p><span class="badge badge-info">${isAdmin?'Admin':'Customer'}</span></div><ul class="sidebar-nav"><li><a class="${userDashTab==='orders'?'active':''}" onclick="setUserDashTab('orders')"><i class="fas fa-shopping-cart"></i> My Orders</a></li><li><a class="${userDashTab==='notifications'?'active':''}" onclick="setUserDashTab('notifications')"><i class="fas fa-bell"></i> Notifications ${notificationCount>0?`<span class="badge badge-pending" style="margin-left:auto;">${notificationCount}</span>`:''}</a></li><li><a class="${userDashTab==='settings'?'active':''}" onclick="setUserDashTab('settings')"><i class="fas fa-cog"></i> Settings</a></li><li><a onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li></ul></div><div class="main-content" id="userDashContent">${renderUserDashContent()}</div></div>`;
     loadUserDashData();
 }
 function renderUserDashContent(){
@@ -671,7 +643,7 @@ function openHelpModal(){
 // ==================== ADMIN DASHBOARD ====================
 function renderAdminDashboard(app){
     if(!isAdmin){navigate('home');return;}
-    app.innerHTML=`<div class="dashboard-layout"><div class="sidebar" id="adminSidebar"><div style="text-align:center;padding:1rem 0;border-bottom:1px solid var(--border);margin-bottom:1rem;"><i class="fas fa-shield-alt fa-3x" style="color:var(--blue-light);"></i><p style="margin-top:0.5rem;font-weight:600;">Admin Panel</p><span class="badge badge-info">Administrator</span></div><ul class="sidebar-nav"><li><a class="${adminSubView==='overview'?'active':''}" onclick="setAdminSubView('overview')"><i class="fas fa-chart-pie"></i> Overview</a></li><li><a class="${adminSubView==='orders'?'active':''}" onclick="setAdminSubView('orders')"><i class="fas fa-shopping-cart"></i> Orders ${notificationCount>0?`<span class="badge badge-pending" style="margin-left:auto;">${notificationCount}</span>`:''}</a></li><li><a class="${adminSubView==='products'?'active':''}" onclick="setAdminSubView('products')"><i class="fas fa-box"></i> Products</a></li><li><a class="${adminSubView==='payments'?'active':''}" onclick="setAdminSubView('payments')"><i class="fas fa-credit-card"></i> Payment Methods</a></li><li><a class="${adminSubView==='users'?'active':''}" onclick="setAdminSubView('users')"><i class="fas fa-users"></i> Users</a></li><li><a class="${adminSubView==='announcements'?'active':''}" onclick="setAdminSubView('announcements')"><i class="fas fa-bullhorn"></i> Announcements</a></li><li><a class="${adminSubView==='coupons'?'active':''}" onclick="setAdminSubView('coupons')"><i class="fas fa-ticket-alt"></i> Coupons</a></li><li><a class="${adminSubView==='settings'?'active':''}" onclick="setAdminSubView('settings')"><i class="fas fa-cog"></i> Settings</a></li><li><a onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li></ul></div><div class="main-content" id="adminMainContent">${renderAdminSubViewContent()}</div></div>`;
+    app.innerHTML=`<div class="dashboard-layout"><div class="sidebar" id="adminSidebar"><div style="text-align:center;padding:1rem 0;border-bottom:1px solid var(--border);margin-bottom:1rem;"><i class="fas fa-shield-alt fa-3x" style="color:var(--gold-light);"></i><p style="margin-top:0.5rem;font-weight:600;">Admin Panel</p><span class="badge badge-info">Administrator</span></div><ul class="sidebar-nav"><li><a class="${adminSubView==='overview'?'active':''}" onclick="setAdminSubView('overview')"><i class="fas fa-chart-pie"></i> Overview</a></li><li><a class="${adminSubView==='orders'?'active':''}" onclick="setAdminSubView('orders')"><i class="fas fa-shopping-cart"></i> Orders ${notificationCount>0?`<span class="badge badge-pending" style="margin-left:auto;">${notificationCount}</span>`:''}</a></li><li><a class="${adminSubView==='products'?'active':''}" onclick="setAdminSubView('products')"><i class="fas fa-box"></i> Products</a></li><li><a class="${adminSubView==='payments'?'active':''}" onclick="setAdminSubView('payments')"><i class="fas fa-credit-card"></i> Payment Methods</a></li><li><a class="${adminSubView==='users'?'active':''}" onclick="setAdminSubView('users')"><i class="fas fa-users"></i> Users</a></li><li><a class="${adminSubView==='announcements'?'active':''}" onclick="setAdminSubView('announcements')"><i class="fas fa-bullhorn"></i> Announcements</a></li><li><a class="${adminSubView==='coupons'?'active':''}" onclick="setAdminSubView('coupons')"><i class="fas fa-ticket-alt"></i> Coupons</a></li><li><a class="${adminSubView==='settings'?'active':''}" onclick="setAdminSubView('settings')"><i class="fas fa-cog"></i> Settings</a></li><li><a onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li></ul></div><div class="main-content" id="adminMainContent">${renderAdminSubViewContent()}</div></div>`;
     loadAdminSubViewData();
 }
 function renderAdminSubViewContent(){
@@ -683,7 +655,7 @@ function renderAdminSubViewContent(){
         case 'users': return `<h3>Users</h3><div id="adminUsersList">Loading...</div>`;
         case 'announcements': return `<h3>Announcements</h3><button class="btn btn-primary btn-sm" onclick="openAnnouncementModal()"><i class="fas fa-plus"></i> Send</button><div id="adminAnnouncementsList" style="margin-top:1rem;">Loading...</div>`;
         case 'coupons': return `<h3>Coupons</h3><button class="btn btn-primary btn-sm" onclick="openCouponModal()"><i class="fas fa-plus"></i> Create</button><div id="adminCouponsList" style="margin-top:1rem;">Loading...</div>`;
-        case 'settings': return `<h3>Settings</h3><div class="glass-card-static" style="max-width:600px;padding:1.5rem;"><h4>Telegram Bot Settings</h4><p style="color:var(--text-muted);">Receive order notifications via Telegram bot.</p><div class="form-group"><label>Bot Token</label><input type="text" id="botToken" placeholder="123456:ABC-DEF1234ghikl" value="${botSettings?.token||''}"></div><div class="form-group"><label>Your Telegram User ID</label><input type="text" id="botUserId" placeholder="123456789" value="${botSettings?.userId||''}"></div><button class="btn btn-primary btn-sm" id="saveBotSettingsBtn" onclick="saveBotSettings()"><i class="fas fa-save"></i> Save Bot Settings</button><p style="margin-top:1rem;font-size:0.8rem;color:var(--text-muted);">Get your User ID from <a href="https://t.me/userinfobot" target="_blank" style="color:var(--blue-light);">@userinfobot</a></p></div>`;
+        case 'settings': return `<h3>Settings</h3><div class="glass-card-static" style="max-width:600px;padding:1.5rem;"><h4>Telegram Bot Settings</h4><p style="color:var(--text-muted);">Receive order notifications via Telegram bot.</p><div class="form-group"><label>Bot Token</label><input type="text" id="botToken" placeholder="123456:ABC-DEF1234ghikl" value="${botSettings?.token||''}"></div><div class="form-group"><label>Your Telegram User ID</label><input type="text" id="botUserId" placeholder="123456789" value="${botSettings?.userId||''}"></div><button class="btn btn-primary btn-sm" id="saveBotSettingsBtn" onclick="saveBotSettings()"><i class="fas fa-save"></i> Save Bot Settings</button><p style="margin-top:1rem;font-size:0.8rem;color:var(--text-muted);">Get your User ID from <a href="https://t.me/userinfobot" target="_blank" style="color:var(--gold-light);">@userinfobot</a></p></div>`;
         default: return '<p>Select a section</p>';
     }
 }
